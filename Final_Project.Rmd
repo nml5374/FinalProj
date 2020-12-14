@@ -1,0 +1,280 @@
+---
+title: "Final Project Report"
+date: 'December 13, 2020'
+author: "Nate Louis"
+output: html_notebook
+---
+```{r}
+# clean up the rstudio environment
+rm(list = ls())
+
+library(tidyr)
+library(tidyverse)
+library(DataComputing)
+library(mosaic)
+library(readr)
+library(rvest)
+```
+
+
+### Guiding Question?
+
+Who should you draft in the 2019-2020 NBA season for your fantasy league team?
+
+If you have friends who have invited you to join their ESPN fantasy league but you're afraid you won't know who will be the right players to draft, this will be the best way to check the stats on these players and fill up your roster to compete against the best. By wrangling the data set, we will be able to find out who the projected top scorers will be and be victorious in your league.
+
+
+### Data Access
+
+My primary data set is the "Fantasy Basketball 2019 Projections" data set. When deciding how to draft fantasy players and creating my own draft order, the first thing I look to is the projected stats. This data set was scrapped off of the FantasyPros.com website and is based off of their projections. Feel free to use this dataset for fantasy research or whatever you may need it for. These statistics were taken from a projection website 2 days before the season began. Each row contains a player and their projected stats for the 2019-2020 NBA season. The stats include all of the main stats such as points, assists, rebounds, etc. but is missing some free throw data and field goal attempts. 
+Sources: 
+https://www.fantasypros.com/nba/projections/ros-overall.php (However, their site updates throughout the season and stats may have changed)
+https://www.kaggle.com/calvingee/nba-stat-projections-2019?select=FantasyPros_Fantasy_Basketball_Overall_2019_Projections.csv
+I imported the data set from Kaggle.com,
+https://www.kaggle.com/calvingee/nba-stat-projections-2019?select=FantasyPros_Fantasy_Basketball_Overall_2019_Projections.csv
+I was able to download the file and convert it to a .txt file, where I then imported the text from (readr) into the global environment. 
+
+My second data set is "starwars" and it is in an r-package (dplyr). It lists 87 characters, their name, information about them (height, weight, hair/eye color, DOB, sex, gender, etc) and which movies of starwars they played a part in.
+
+I am also adding extra data to include height and weight, etc. I will be importing the same way I did for Fantasy Basketball data set.
+https://www.kaggle.com/drgilermo/nba-players-stats?select=Seasons_Stats.csv
+
+```{r}
+# View
+Players <- read_csv("Players.csv")
+View(Players)
+```
+
+```{r}
+# View
+Seasons_Stats <- read_csv("Seasons_Stats.csv")
+View(Seasons_Stats)
+```
+
+
+
+```{r}
+# Code used to import Projected Fantasy Stats of the 2019-2020 NBA season
+
+Fantasy_Basketball_Projections_2019 <- read_csv("FantasyPros_Fantasy_Basketball_Overall_2019_Projections.csv")
+View(Fantasy_Basketball_Projections_2019)
+```
+
+
+
+```{r}
+# 14 Variables
+Fantasy_Basketball_Projections_2019 %>%
+  select(1:14)
+
+```
+
+
+```{r}
+# Star Wars data set
+
+data("starwars")
+View(starwars)
+```
+
+```{r}
+starwars %>%
+  select(name, species, homeworld)
+```
+
+
+### Inspecting the Data
+```{r}
+head(Fantasy_Basketball_Projections_2019) # grabbing the first few rows of FantasyBasketball Index
+nrow(Fantasy_Basketball_Projections_2019) # counting the number of cases in the data frame
+names(Fantasy_Basketball_Projections_2019) # checking the variable names in FantasyBasketball Index
+head(starwars) # checking the first few rows of Star Wars Index
+nrow(starwars) # counting the number of cases in the data frame for Star Wars
+names(starwars) # checking the variable names in Star Wars data frame
+
+
+head(Seasons_Stats)
+names(Seasons_Stats)
+head(Players)
+names(Players)
+```
+
+### Data Wrangling
+
+Taking a look at the best players for going into the NBA season, you want to make sure if you are able to, to get the best players who are predicted to score the most points for your team, and they will be the ones to lead you to victory. The top 10 players are the ones who are MOST talked about every year, they are the ones who are the leaders of the teams, and get paid the most amount of money. Sometimes they are the tallest, biggest, or strongest, and sometimes it's their God-given talent that puts them above the rest.
+```{r}
+# Only players, the team they play for by position
+Player_Team_Pos <-
+  Fantasy_Basketball_Projections_2019 %>%
+  select(Player, Team, Positions) %>%
+  arrange(Positions)
+
+Player_Team_Pos
+
+# Top 10 Fantasy players by points
+# Ranking top 10 by points
+Top10 <-
+  Fantasy_Basketball_Projections_2019 %>%
+  select(Player, Team, PTS) %>%
+  arrange(desc(PTS)) %>%
+  mutate(player_rank = rank(desc(PTS))) %>%
+  filter(player_rank <= 10)
+
+Top10
+
+# Average points scored by the top 10
+
+Avg_Top10 <-
+  Top10 %>%
+  summarise(Average_Points = mean(PTS))
+  
+
+Avg_Top10
+```
+
+
+Using the "Players" data frame, I can use their heights to compare to characters in our "Star War" data frame, by using 'join'. Let's see how some of the NBA's finest compare to our intergalactic Jedi's. 
+```{r}
+# creating a table joined with NBA players, how their heights match with Star Wars characters
+
+# Heights measured in (cm)
+
+MergedTable <-
+  Players %>%
+  left_join(starwars, by = c("height"))
+MergedTable
+
+
+Heights <-
+  MergedTable %>%
+  select(X1, Player, weight, height, name, mass, species)
+Heights
+
+
+Heights %>%
+  arrange(desc(height))
+```
+Let's take a wider look on each team, and how many players they have for each position(s) they play.
+```{r}
+# Let's try to get a narrow DF from our Fantasy Basketball dataset and make it wider.
+
+Wide_DF <-
+Fantasy_Basketball_Projections_2019 %>%
+  group_by(Team, Positions) %>%
+  summarise(total = n()) %>%
+  spread(key = Positions, value = total)
+
+Wide_DF
+``` 
+
+One of my favorite parts of stat 184 was learning RegExs, I will have some fun using them on my Fantasy Basketball and Star Wars data frames.
+```{r}
+# NBA players with names (consonant, vowel, vowel, any character, consonant, consonant)
+TwoVowels_2Consonants <-
+  Fantasy_Basketball_Projections_2019 %>%
+  select(Player) %>%
+  filter(grepl("[^aeiou][aeiou]{2}.[^aeiou]{2,}", Player, ignore.case = TRUE))
+
+TwoVowels_2Consonants
+```
+### More Regular Expressions
+
+```{r}
+# the use of more regular expression using the Star Wars data frame
+Ending_VowelR <-
+  starwars %>%
+  select(name, sex, homeworld, species) %>%
+  filter(grepl("[aeiou][r]$", name))
+
+Ending_VowelR
+
+Name_Ends_With_Vowel <-
+  starwars %>%
+  select(name, sex, homeworld, species) %>%
+  filter(grepl("[aeiou]$", name)) 
+
+Name_Ends_With_Vowel
+```
+
+
+
+### Data Visualization
+
+```{r}
+New_Seasons_Stats <-
+  Seasons_Stats %>%
+  select(Year, Player, G, FTr, OWS, DWS, WS, FG, FGA, AST, PF, PTS)
+
+New_Seasons_Stats
+```
+```{r}
+# Let's see as the years go on how the scoring of points per year look and trends
+
+New_Seasons_Stats %>%
+  group_by(Year) %>%
+  summarise(Total_Points = sum(PTS)) %>%
+  ggplot(aes(x = Year, y = Total_Points)) +
+  geom_bar(stat = 'identity', position = 'dodge', width = 0.9)
+  
+  
+  
+ 
+```
+
+As the years go on, players in the NBA find more efficient ways to score more and more every year, with the occasional dip due to what may be unusual circumstances. For the 2011 or 2012 season, it was shortened due to a lockout within National Basketball Association leading to a shorter season and less points scored for the year. Entering the 2018 and 2019 season, due to this trend many players in the league are scoring points, which makes it easier to pick players because many of them can score for your fantasy team.
+
+```{r}
+Joined_League <-
+  Fantasy_Basketball_Projections_2019 %>%
+  left_join(Seasons_Stats, by = c("Player"))
+
+
+Joined_League
+
+# Looking at 5 of some of my favorite players to watch throught the years
+
+Fav_Players <-
+  Joined_League %>%
+  select(Year, Player, Team, PTS.y) %>%
+  filter(grepl("Lebron James|James Harden|Stephen Curry|Giannis|Damian Lillard", Player, ignore.case = TRUE)) %>%
+  ggplot(aes(x = Player, y = PTS.y)) +
+  geom_point(aes(color = Team)) +
+  facet_wrap(~ Year) +
+  ylab("Points") +
+  theme(axis.text.x = element_text(angle = 50, hjust = 1))
+
+Fav_Players
+```
+
+
+```{r}
+# How teams pair up with each other by points scored, teams that score the highest are the players you are going to want to look into most of the times
+
+Best_Teams <-
+  Joined_League %>%
+  group_by(Team, PTS.y) %>%
+  summarise(Points = sum(PTS.y)) %>%
+  ggplot(aes(x = Team, y = Points)) +
+  geom_boxplot(aes(fill = Team)) +
+  theme(axis.text.x = element_text(angle = 50, hjust = 1))
+  
+Best_Teams
+```
+
+
+```{r}
+# Top 25 players for the 2019-2020 season
+
+Top_25 <-
+  Fantasy_Basketball_Projections_2019 %>%
+  select(Player, Team, PTS) %>%
+  head(25) %>%
+  ggplot(aes(x = Team, y = PTS)) +
+  geom_point(aes(color = Player)) +
+  theme(axis.text.x = element_text(angle = 50, hjust = 1))
+
+Top_25
+
+  
+```
+
